@@ -53,6 +53,18 @@ export default function App() {
           <Stand onReady={setBounds} />
         </Suspense>
 
+        {/* Chão amplo para não "flutuar" ao olhar pela frente aberta */}
+        {bounds && (
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[bounds.center.x, bounds.min.y - 0.02, bounds.center.z]}
+            receiveShadow
+          >
+            <planeGeometry args={[300, 300]} />
+            <meshStandardMaterial color="#e2ded5" />
+          </mesh>
+        )}
+
         <Player bounds={bounds} move={moveRef} look={lookRef} />
       </Canvas>
 

@@ -17,13 +17,14 @@ export default function Player({ bounds, look, move }) {
   const keys = useRef({});
   const started = useRef(false);
 
-  // Posiciona a câmera assim que a bounding box do modelo estiver pronta.
+  // Posiciona a câmera na ENTRADA do estande (frente aberta = maior Z),
+  // centralizada na largura e olhando na diagonal para dentro.
   useEffect(() => {
     if (!bounds || started.current) return;
     started.current = true;
-    const { center, min } = bounds;
-    camera.position.set(center.x, min.y + EYE_HEIGHT, center.z);
-    yaw.current = 0;
+    const { center, min, max } = bounds;
+    camera.position.set(center.x, min.y + EYE_HEIGHT, max.z - 0.8);
+    yaw.current = -Math.PI / 4;
     pitch.current = 0;
   }, [bounds, camera]);
 
