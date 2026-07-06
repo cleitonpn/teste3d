@@ -1,0 +1,5 @@
+node_modules
+dist
+_incoming
+_work
+.DS_Store
