@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import {
   Environment, Lightformer, Loader, AdaptiveDpr, OrbitControls,
-  SoftShadows, ContactShadows, MeshReflectorMaterial, TransformControls,
+  SoftShadows, ContactShadows, TransformControls,
 } from '@react-three/drei';
 import { EffectComposer, N8AO, Bloom, SMAA } from '@react-three/postprocessing';
 import Stand from '../Stand.jsx';
@@ -65,7 +65,7 @@ export default function Viewer({
   const [artPanels, setArtPanels] = useState([]);
   const [colorSurfaces, setColorSurfaces] = useState([]);
   const [mode, setMode] = useState('orbit');
-  const [quality, setQuality] = useState(isTouch ? 'balanced' : 'high');
+  const [quality, setQuality] = useState('balanced');
   const [showHint, setShowHint] = useState(true);
   const [furniture, setFurniture] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -120,15 +120,19 @@ export default function Viewer({
       <Canvas shadows dpr={[1, 2]}
         camera={{ fov: 55, near: 0.05, far: 400, position: [10, 6, 12] }}
         gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.05 }}
-        style={{ background: '#eae6de' }}>
+        style={{ background: '#eae6de' }}
+        onCreated={({ gl }) => {
+          // evita que uma perda de contexto WebGL vire tela preta permanente
+          gl.domElement.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
+        }}>
         <AdaptiveDpr pixelated />
-        <SoftShadows size={26} samples={12} focus={0.85} />
+        <SoftShadows size={22} samples={8} focus={0.85} />
         <hemisphereLight args={[0xffffff, 0x8a8578, 0.85]} />
         <ambientLight intensity={0.3} />
         <directionalLight position={[7, 15, 7]} intensity={2.4} castShadow
-          shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002}
+          shadow-mapSize={[1024, 1024]} shadow-bias={-0.0002}
           shadow-camera-left={-16} shadow-camera-right={16} shadow-camera-top={16} shadow-camera-bottom={-16} />
-        <Environment resolution={512} background={false}>
+        <Environment resolution={256} background={false}>
           <Lightformer intensity={2.2} position={[0, 8, -4]} scale={[16, 8, 1]} />
           <Lightformer intensity={1.1} position={[-8, 5, 4]} scale={[8, 8, 1]} />
           <Lightformer intensity={1.1} position={[8, 5, 4]} scale={[8, 8, 1]} />
@@ -146,16 +150,15 @@ export default function Viewer({
           <>
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[bounds.center.x, bounds.min.y - 0.015, bounds.center.z]} receiveShadow>
               <planeGeometry args={[400, 400]} />
-              <MeshReflectorMaterial resolution={quality === 'high' ? 1024 : 512} mixBlur={6}
-                mixStrength={quality === 'high' ? 1.4 : 0.8} blur={[400, 200]} roughness={0.85}
-                depthScale={0.8} minDepthThreshold={0.4} maxDepthThreshold={1.2} color="#e0dcd3" metalness={0.15} />
+              <meshStandardMaterial color="#e4e0d7" roughness={0.95} metalness={0} />
             </mesh>
             <ContactShadows position={[bounds.center.x, bounds.min.y + 0.005, bounds.center.z]}
-              scale={maxDim * 1.8} resolution={1024} blur={2.6} opacity={0.55} far={maxDim} />
+              scale={maxDim * 1.8} resolution={512} blur={2.6} opacity={0.5} far={maxDim} />
           </>
         )}
 
         <Capture captureRef={captureRef} />
+
 
         {mode === 'orbit'
           ? <OrbitRig bounds={bounds} />
