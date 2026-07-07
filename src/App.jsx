@@ -1,6 +1,11 @@
 import React, { Suspense, useRef, useState, useEffect } from 'react';
+import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Environment, Lightformer, Loader, AdaptiveDpr, OrbitControls } from '@react-three/drei';
+import {
+  Environment, Lightformer, Loader, AdaptiveDpr, OrbitControls,
+  SoftShadows, ContactShadows, MeshReflectorMaterial,
+} from '@react-three/drei';
+import { EffectComposer, N8AO, Bloom, SMAA } from '@react-three/postprocessing';
 import Stand from './Stand.jsx';
 import Player from './Player.jsx';
 import Joystick from './Joystick.jsx';
@@ -8,8 +13,6 @@ import Joystick from './Joystick.jsx';
 const isTouch = typeof window !== 'undefined' &&
   window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
-// Câmera de órbita (estilo SketchUp/Sketchfab): arrasta gira, scroll zoom,
-// botão direito faz pan. Damping ligado = movimento fluido.
 function OrbitRig({ bounds }) {
   const { camera } = useThree();
   const ctrl = useRef();
@@ -43,9 +46,11 @@ function OrbitRig({ bounds }) {
 export default function App() {
   const [bounds, setBounds] = useState(null);
   const [mode, setMode] = useState('orbit'); // 'orbit' | 'walk'
+  const [quality, setQuality] = useState(isTouch ? 'balanced' : 'high');
   const [showHint, setShowHint] = useState(true);
   const moveRef = useRef({ x: 0, y: 0 });
   const lookRef = useRef({ yaw: 0, pitch: 0 });
+  const maxDim = bounds ? Math.max(bounds.size.x, bounds.size.y, bounds.size.z) : 10;
 
   useEffect(() => {
     setShowHint(true);
@@ -67,27 +72,32 @@ export default function App() {
         shadows
         dpr={[1, 2]}
         camera={{ fov: 55, near: 0.05, far: 400, position: [10, 6, 12] }}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
-        style={{ background: '#e9e5dd' }}
+        gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.05 }}
+        style={{ background: '#eae6de' }}
       >
         <AdaptiveDpr pixelated />
-        <hemisphereLight args={[0xffffff, 0x8a8578, 0.85]} />
-        <ambientLight intensity={0.3} />
+        <SoftShadows size={26} samples={12} focus={0.85} />
+
+        <hemisphereLight args={[0xffffff, 0x9a9488, 0.5]} />
+        <ambientLight intensity={0.14} />
         <directionalLight
-          position={[6, 14, 6]}
-          intensity={1.4}
+          position={[7, 15, 7]}
+          intensity={2.4}
           castShadow
           shadow-mapSize={[2048, 2048]}
-          shadow-camera-left={-14}
-          shadow-camera-right={14}
-          shadow-camera-top={14}
-          shadow-camera-bottom={-14}
+          shadow-bias={-0.0002}
+          shadow-camera-left={-16}
+          shadow-camera-right={16}
+          shadow-camera-top={16}
+          shadow-camera-bottom={-16}
         />
 
-        <Environment resolution={256} background={false}>
-          <Lightformer intensity={2} position={[0, 6, -3]} scale={[12, 6, 1]} />
-          <Lightformer intensity={1.2} position={[-6, 4, 3]} scale={[6, 6, 1]} />
-          <Lightformer intensity={1.2} position={[6, 4, 3]} scale={[6, 6, 1]} />
+        {/* Estúdio de luz (reflexos nos materiais) — sem depender de CDN */}
+        <Environment resolution={512} background={false}>
+          <Lightformer intensity={2.2} position={[0, 8, -4]} scale={[16, 8, 1]} />
+          <Lightformer intensity={1.1} position={[-8, 5, 4]} scale={[8, 8, 1]} />
+          <Lightformer intensity={1.1} position={[8, 5, 4]} scale={[8, 8, 1]} />
+          <Lightformer intensity={0.8} position={[0, 6, 8]} scale={[12, 6, 1]} />
         </Environment>
 
         <Suspense fallback={null}>
@@ -95,22 +105,52 @@ export default function App() {
         </Suspense>
 
         {bounds && (
-          <mesh
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[bounds.center.x, bounds.min.y - 0.02, bounds.center.z]}
-            receiveShadow
-          >
-            <planeGeometry args={[300, 300]} />
-            <meshStandardMaterial color="#e2ded5" />
-          </mesh>
+          <>
+            {/* Piso com reflexo sutil, como nos renders */}
+            <mesh
+              rotation={[-Math.PI / 2, 0, 0]}
+              position={[bounds.center.x, bounds.min.y - 0.015, bounds.center.z]}
+              receiveShadow
+            >
+              <planeGeometry args={[400, 400]} />
+              <MeshReflectorMaterial
+                resolution={quality === 'high' ? 1024 : 512}
+                mixBlur={6}
+                mixStrength={quality === 'high' ? 1.4 : 0.8}
+                blur={[400, 200]}
+                roughness={0.85}
+                depthScale={0.8}
+                minDepthThreshold={0.4}
+                maxDepthThreshold={1.2}
+                color="#e0dcd3"
+                metalness={0.15}
+              />
+            </mesh>
+            {/* Sombra de contato para "assentar" o estande no chão */}
+            <ContactShadows
+              position={[bounds.center.x, bounds.min.y + 0.005, bounds.center.z]}
+              scale={maxDim * 1.8}
+              resolution={1024}
+              blur={2.6}
+              opacity={0.55}
+              far={maxDim}
+            />
+          </>
         )}
 
         {mode === 'orbit'
           ? <OrbitRig bounds={bounds} />
           : <Player bounds={bounds} mode="walk" move={moveRef} look={lookRef} />}
+
+        {quality === 'high' && (
+          <EffectComposer disableNormalPass multisampling={0}>
+            <N8AO aoRadius={0.7} intensity={2.2} distanceFalloff={1} quality="medium" />
+            <Bloom luminanceThreshold={0.75} intensity={0.5} mipmapBlur radius={0.6} />
+            <SMAA />
+          </EffectComposer>
+        )}
       </Canvas>
 
-      {/* Mira central (só no modo Pessoa) */}
       {mode === 'walk' && (
         <div style={{
           position: 'fixed', left: '50%', top: '50%', width: 8, height: 8,
@@ -120,19 +160,22 @@ export default function App() {
         }} />
       )}
 
-      {/* Botão de alternar modo */}
-      <button
-        onClick={() => setMode((m) => (m === 'orbit' ? 'walk' : 'orbit'))}
-        style={{
-          position: 'fixed', right: 16, top: 16, zIndex: 30,
-          background: 'rgba(15,20,26,0.85)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)',
-          padding: '10px 16px', borderRadius: 999, fontSize: 15, fontWeight: 600, cursor: 'pointer',
-        }}
-      >
-        {mode === 'orbit' ? '🔄 Órbita  →  🚶 Pessoa' : '🚶 Pessoa  →  🔄 Órbita'}
-      </button>
+      {/* Botões */}
+      <div style={{ position: 'fixed', right: 16, top: 16, zIndex: 30, display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => setQuality((q) => (q === 'high' ? 'balanced' : 'high'))}
+          style={btnStyle}
+        >
+          {quality === 'high' ? '✨ Alta' : '⚡ Equilibrada'}
+        </button>
+        <button
+          onClick={() => setMode((m) => (m === 'orbit' ? 'walk' : 'orbit'))}
+          style={btnStyle}
+        >
+          {mode === 'orbit' ? '🔄 Órbita' : '🚶 Pessoa'}
+        </button>
+      </div>
 
-      {/* Instruções */}
       {showHint && (
         <div style={{
           position: 'fixed', left: '50%', top: 22, transform: 'translateX(-50%)',
@@ -161,3 +204,8 @@ export default function App() {
     </>
   );
 }
+
+const btnStyle = {
+  background: 'rgba(15,20,26,0.85)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)',
+  padding: '10px 14px', borderRadius: 999, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+};
