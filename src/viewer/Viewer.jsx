@@ -34,6 +34,21 @@ function OrbitRig({ bounds }) {
   );
 }
 
+// Captura de imagem sob demanda: renderiza uma vez e lê o buffer no mesmo
+// tick (funciona sem preserveDrawingBuffer, sem custo por quadro).
+function Capture({ captureRef }) {
+  const { gl, scene, camera } = useThree();
+  useEffect(() => {
+    if (!captureRef) return undefined;
+    captureRef.current = () => {
+      gl.render(scene, camera);
+      return gl.domElement.toDataURL('image/jpeg', 0.85);
+    };
+    return () => { if (captureRef) captureRef.current = null; };
+  }, [gl, scene, camera, captureRef]);
+  return null;
+}
+
 // contorno de seleção (caixa) que acompanha o objeto selecionado
 function SelectionBox({ object }) {
   const helper = useMemo(() => (object ? new THREE.BoxHelper(object, 0x2f6bff) : null), [object]);
@@ -44,7 +59,7 @@ function SelectionBox({ object }) {
 
 export default function Viewer({
   modelUrl, artConfig, colorConfig = [], extraUI = null,
-  editable = false, editsRef, picking = false, onPick,
+  editable = false, editsRef, captureRef, picking = false, onPick,
 }) {
   const [bounds, setBounds] = useState(null);
   const [artPanels, setArtPanels] = useState([]);
@@ -104,7 +119,7 @@ export default function Viewer({
     <div style={{ position: 'fixed', inset: 0 }}>
       <Canvas shadows dpr={[1, 2]}
         camera={{ fov: 55, near: 0.05, far: 400, position: [10, 6, 12] }}
-        gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.05, preserveDrawingBuffer: true }}
+        gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.05 }}
         style={{ background: '#eae6de' }}>
         <AdaptiveDpr pixelated />
         <SoftShadows size={26} samples={12} focus={0.85} />
@@ -139,6 +154,8 @@ export default function Viewer({
               scale={maxDim * 1.8} resolution={1024} blur={2.6} opacity={0.55} far={maxDim} />
           </>
         )}
+
+        <Capture captureRef={captureRef} />
 
         {mode === 'orbit'
           ? <OrbitRig bounds={bounds} />

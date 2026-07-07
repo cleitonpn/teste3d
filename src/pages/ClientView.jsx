@@ -14,6 +14,7 @@ export default function ClientView() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const editsRef = useRef({ arts: {}, colors: {}, furnitureChanged: false });
+  const captureRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -64,8 +65,7 @@ export default function ClientView() {
     if (sending) return;
     setSending(true);
     try {
-      const canvas = document.querySelector('canvas');
-      const shot = canvas ? canvas.toDataURL('image/jpeg', 0.85) : null;
+      const shot = captureRef.current ? captureRef.current() : null;
       await createSubmission(id, {
         cliente: cliente.nome, email: cliente.email,
         colors: editsRef.current.colors, artFiles: editsRef.current.arts,
@@ -96,6 +96,7 @@ export default function ClientView() {
       colorConfig={project.corEditavel || []}
       editable
       editsRef={editsRef}
+      captureRef={captureRef}
       extraUI={extraUI}
     />
   );
