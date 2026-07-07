@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { applyArtFile, resetArt } from './artSwap';
 
 // Painel para trocar as artes (logos/lonas/imagens) e ver aplicadas ao vivo.
-export default function ArtEditor({ panels }) {
+export default function ArtEditor({ panels, onChange }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(null);
   const [changed, setChanged] = useState({});
@@ -20,6 +20,7 @@ export default function ArtEditor({ panels }) {
     try {
       await applyArtFile(panel, file);
       setChanged((c) => ({ ...c, [panel.id]: true }));
+      onChange?.(panel.id, file);
     } catch (err) {
       alert('Não consegui aplicar essa imagem. Use um PNG ou JPG.');
     } finally {
@@ -30,10 +31,11 @@ export default function ArtEditor({ panels }) {
   const onReset = (panel) => {
     resetArt(panel);
     setChanged((c) => ({ ...c, [panel.id]: false }));
+    onChange?.(panel.id, null);
   };
 
   return (
-    <div style={{ position: 'fixed', left: 16, top: 16, zIndex: 30, maxWidth: 300 }}>
+    <div style={{ maxWidth: 300 }}>
       <button onClick={() => setOpen((o) => !o)} style={btn}>
         🎨 Trocar artes {open ? '▲' : '▼'}
       </button>

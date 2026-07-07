@@ -113,6 +113,7 @@ export default function Dashboard() {
                 </div>
                 <div className="row">
                   <a className="btn" href={`#/editar/${p.id}`}>Marcar artes</a>
+                  <a className="btn" href={`#/envios/${p.id}`}>Envios</a>
                   <button className="btn" onClick={() => copy(p)}>{copied === p.id ? 'Copiado!' : 'Copiar link'}</button>
                   <a className="btn pri" href={`#/p/${p.id}`} target="_blank" rel="noreferrer">Abrir</a>
                   <button className="btn" onClick={() => remove(p)} title="Excluir projeto"

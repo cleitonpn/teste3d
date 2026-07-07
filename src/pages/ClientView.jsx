@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { getProject, getModelUrl } from '../lib/projects';
+import { getProject, getModelUrl, createSubmission } from '../lib/projects';
 import Viewer from '../viewer/Viewer.jsx';
 
 export default function ClientView() {
@@ -11,6 +11,9 @@ export default function ClientView() {
   const [cliente, setCliente] = useState(null); // {nome,email}
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const editsRef = useRef({ arts: {}, colors: {}, furnitureChanged: false });
 
   useEffect(() => {
     (async () => {
@@ -57,19 +60,43 @@ export default function ClientView() {
     );
   }
 
-  const enviar = () => {
-    // Fase 2.1: salvar a configuração (artes/cores/móveis) como um "envio" no Firestore.
-    alert('Envio de aprovação entra na próxima etapa (Fase 2.1). Por enquanto, explore à vontade!');
+  const enviar = async () => {
+    if (sending) return;
+    setSending(true);
+    try {
+      const canvas = document.querySelector('canvas');
+      const shot = canvas ? canvas.toDataURL('image/jpeg', 0.85) : null;
+      await createSubmission(id, {
+        cliente: cliente.nome, email: cliente.email,
+        colors: editsRef.current.colors, artFiles: editsRef.current.arts,
+        screenshotDataUrl: shot,
+      });
+      setSent(true);
+    } catch (e) {
+      alert('Não consegui enviar: ' + (e.code || e.message));
+    } finally {
+      setSending(false);
+    }
   };
 
   const extraUI = (
-    <div style={{ position: 'fixed', left: 16, bottom: 16, zIndex: 30 }}>
-      <button onClick={enviar} style={{
-        background: '#DB8A18', color: '#1b1305', border: 'none', padding: '11px 18px',
-        borderRadius: 999, fontSize: 15, fontWeight: 700, cursor: 'pointer',
-      }}>Enviar aprovação</button>
+    <div style={{ position: 'fixed', right: 16, bottom: 16, zIndex: 30 }}>
+      <button onClick={enviar} disabled={sending || sent} style={{
+        background: sent ? '#2E9A67' : '#DB8A18', color: sent ? '#fff' : '#1b1305', border: 'none',
+        padding: '12px 20px', borderRadius: 999, fontSize: 15, fontWeight: 700,
+        cursor: sending || sent ? 'default' : 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+      }}>{sent ? '✓ Enviado!' : sending ? 'Enviando…' : 'Enviar aprovação'}</button>
     </div>
   );
 
-  return <Viewer modelUrl={modelUrl} artConfig={project.painelDeArte || []} extraUI={extraUI} />;
+  return (
+    <Viewer
+      modelUrl={modelUrl}
+      artConfig={project.painelDeArte || []}
+      colorConfig={project.corEditavel || []}
+      editable
+      editsRef={editsRef}
+      extraUI={extraUI}
+    />
+  );
 }

@@ -1,7 +1,7 @@
 import {
-  collection, doc, addDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, serverTimestamp,
+  collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from './firebase';
 
 // gera um token curto para o link público do cliente
@@ -67,4 +67,41 @@ export async function deleteProject(project) {
   try { if (project.glbPath) await deleteObject(ref(storage, project.glbPath)); }
   catch (e) { /* arquivo já pode não existir — segue removendo o registro */ }
   await deleteDoc(doc(db, 'projetos', project.id));
+}
+
+// Cliente envia sua versão: sobe artes trocadas + um preview (screenshot),
+// grava as cores escolhidas e registra o envio.
+export async function createSubmission(projectId, { cliente, email, colors, artFiles, screenshotDataUrl }) {
+  const subId = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
+  const artes = [];
+  for (const [panelId, file] of Object.entries(artFiles || {})) {
+    const path = `envios/${projectId}/${subId}/art_${panelId}.png`;
+    await uploadBytes(ref(storage, path), file, { contentType: file.type || 'image/png' });
+    artes.push({ panelId, path });
+  }
+
+  let screenshotPath = null;
+  if (screenshotDataUrl) {
+    const blob = await (await fetch(screenshotDataUrl)).blob();
+    screenshotPath = `envios/${projectId}/${subId}/preview.jpg`;
+    await uploadBytes(ref(storage, screenshotPath), blob, { contentType: 'image/jpeg' });
+  }
+
+  // grava tudo de uma vez (só "create", compatível com as regras)
+  await setDoc(doc(db, 'projetos', projectId, 'envios', subId), {
+    cliente: cliente || '', email: email || '', colors: colors || {}, artes, screenshotPath,
+    criadoEm: serverTimestamp(),
+  });
+  return subId;
+}
+
+export async function listSubmissions(projectId) {
+  const snap = await getDocs(collection(db, 'projetos', projectId, 'envios'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.criadoEm?.seconds || 0) - (a.criadoEm?.seconds || 0));
+}
+
+export async function getFileUrl(path) {
+  return getDownloadURL(ref(storage, path));
 }

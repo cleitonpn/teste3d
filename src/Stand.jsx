@@ -14,7 +14,7 @@ const DEMO_ART_PANELS = [
   { id: 'logo_avant', name: 'Logo AVANT', material: 'Material-325' },
 ];
 
-export default function Stand({ url = DEFAULT_URL, artConfig = DEMO_ART_PANELS, onReady, onArtReady, onPick }) {
+export default function Stand({ url = DEFAULT_URL, artConfig = DEMO_ART_PANELS, colorConfig = [], onReady, onArtReady, onColorReady, onScene, onPick }) {
   const { scene } = useGLTF(url, DRACO_PATH);
 
   const handleClick = (e) => {
@@ -23,6 +23,7 @@ export default function Stand({ url = DEFAULT_URL, artConfig = DEMO_ART_PANELS, 
     const mesh = e.object;
     const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
     onPick({
+      object: mesh,
       material: mat || null,
       materialName: mat?.name || '',
       meshName: mesh.name || '',
@@ -52,13 +53,24 @@ export default function Stand({ url = DEFAULT_URL, artConfig = DEMO_ART_PANELS, 
       .filter(Boolean);
     onArtReady?.(panels);
 
+    const colorSurfaces = (colorConfig || [])
+      .map((c) => {
+        const material = byName[c.material];
+        if (!material || !material.color) return null;
+        return { ...c, material, originalColor: material.color.getHexString() };
+      })
+      .filter(Boolean);
+    onColorReady?.(colorSurfaces);
+
+    onScene?.(scene);
+
     const box = new THREE.Box3().setFromObject(scene);
     const size = new THREE.Vector3();
     const center = new THREE.Vector3();
     box.getSize(size);
     box.getCenter(center);
     onReady?.({ min: box.min.clone(), max: box.max.clone(), size, center });
-  }, [scene, artConfig, onReady, onArtReady]);
+  }, [scene, artConfig, colorConfig, onReady, onArtReady, onColorReady, onScene]);
 
   return (
     <primitive
