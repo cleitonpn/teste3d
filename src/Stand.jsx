@@ -2,20 +2,20 @@ import React, { useEffect } from 'react';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
-const MODEL_URL = `${import.meta.env.BASE_URL}models/estande.glb`;
+const DEFAULT_URL = `${import.meta.env.BASE_URL}models/estande.glb`;
 const DRACO_PATH = `${import.meta.env.BASE_URL}draco/`;
 
-// Superfícies de arte editáveis (identificadas pelo nome do material no .glb).
-// Para outros projetos, esta lista é o que precisaria ser mapeado (1x por projeto).
-export const ART_PANELS = [
+// Superfícies de arte editáveis, por nome de material. No app, esta lista virá
+// da configuração do projeto (marcada pelo projetista). Fallback = estande demo.
+const DEMO_ART_PANELS = [
   { id: 'lona_avion', name: 'Lona avião (pôr do sol)', material: 'F05_Fresh_Green' },
   { id: 'foto_pista', name: 'Foto avião (pista)', material: 'L05_Cherry_Flame' },
   { id: 'infografico', name: 'Painel infográfico', material: 'L06_Crimson_Glow' },
   { id: 'logo_avant', name: 'Logo AVANT', material: 'Material-325' },
 ];
 
-export default function Stand({ onReady, onArtReady }) {
-  const { scene } = useGLTF(MODEL_URL, DRACO_PATH);
+export default function Stand({ url = DEFAULT_URL, artConfig = DEMO_ART_PANELS, onReady, onArtReady }) {
+  const { scene } = useGLTF(url, DRACO_PATH);
 
   useEffect(() => {
     const byName = {};
@@ -28,8 +28,7 @@ export default function Stand({ onReady, onArtReady }) {
       }
     });
 
-    // monta a lista de painéis de arte encontrados, guardando a textura original
-    const panels = ART_PANELS
+    const panels = (artConfig || [])
       .map((p) => {
         const material = byName[p.material];
         if (!material) return null;
@@ -44,9 +43,9 @@ export default function Stand({ onReady, onArtReady }) {
     box.getSize(size);
     box.getCenter(center);
     onReady?.({ min: box.min.clone(), max: box.max.clone(), size, center });
-  }, [scene, onReady, onArtReady]);
+  }, [scene, artConfig, onReady, onArtReady]);
 
   return <primitive object={scene} />;
 }
 
-useGLTF.preload(MODEL_URL, DRACO_PATH);
+useGLTF.preload(DEFAULT_URL, DRACO_PATH);
