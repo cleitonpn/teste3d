@@ -1,6 +1,6 @@
 import React, { Suspense, useRef, useState, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { Environment, Lightformer, Loader, AdaptiveDpr } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { Environment, Lightformer, Loader, AdaptiveDpr, OrbitControls } from '@react-three/drei';
 import Stand from './Stand.jsx';
 import Player from './Player.jsx';
 import Joystick from './Joystick.jsx';
@@ -8,42 +8,65 @@ import Joystick from './Joystick.jsx';
 const isTouch = typeof window !== 'undefined' &&
   window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
+// Câmera de órbita (estilo SketchUp/Sketchfab): arrasta gira, scroll zoom,
+// botão direito faz pan. Damping ligado = movimento fluido.
+function OrbitRig({ bounds }) {
+  const { camera } = useThree();
+  const ctrl = useRef();
+  const maxDim = bounds ? Math.max(bounds.size.x, bounds.size.y, bounds.size.z) : 10;
+
+  useEffect(() => {
+    if (!bounds || !ctrl.current) return;
+    const { center } = bounds;
+    camera.position.set(center.x + maxDim * 0.75, center.y + maxDim * 0.5, center.z + maxDim * 1.05);
+    ctrl.current.target.set(center.x, center.y, center.z);
+    ctrl.current.update();
+  }, [bounds, camera, maxDim]);
+
+  return (
+    <OrbitControls
+      ref={ctrl}
+      makeDefault
+      enableDamping
+      dampingFactor={0.08}
+      rotateSpeed={0.7}
+      zoomSpeed={0.9}
+      panSpeed={0.7}
+      minDistance={1.2}
+      maxDistance={maxDim * 4}
+      maxPolarAngle={Math.PI / 2}
+      target={bounds ? [bounds.center.x, bounds.center.y, bounds.center.z] : [0, 0, 0]}
+    />
+  );
+}
+
 export default function App() {
   const [bounds, setBounds] = useState(null);
-  const [mode, setMode] = useState('walk'); // 'walk' | 'drone'
+  const [mode, setMode] = useState('orbit'); // 'orbit' | 'walk'
   const [showHint, setShowHint] = useState(true);
   const moveRef = useRef({ x: 0, y: 0 });
-  const vertRef = useRef(0);
   const lookRef = useRef({ yaw: 0, pitch: 0 });
 
   useEffect(() => {
     setShowHint(true);
-    const t = setTimeout(() => setShowHint(false), 6000);
+    const t = setTimeout(() => setShowHint(false), 7000);
     return () => clearTimeout(t);
   }, [mode]);
 
-  // Atalho de teclado "V" alterna Pessoa/Drone (útil no desktop com mouse travado).
   useEffect(() => {
     const onKey = (e) => {
-      if (e.code === 'KeyV') setMode((m) => (m === 'walk' ? 'drone' : 'walk'));
+      if (e.code === 'KeyV') setMode((m) => (m === 'orbit' ? 'walk' : 'orbit'));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-
-  const holdVert = (v) => ({
-    onPointerDown: (e) => { e.preventDefault(); vertRef.current = v; },
-    onPointerUp: () => { vertRef.current = 0; },
-    onPointerLeave: () => { vertRef.current = 0; },
-    onPointerCancel: () => { vertRef.current = 0; },
-  });
 
   return (
     <>
       <Canvas
         shadows
         dpr={[1, 2]}
-        camera={{ fov: 72, near: 0.05, far: 400, position: [0, 1.6, 0] }}
+        camera={{ fov: 55, near: 0.05, far: 400, position: [10, 6, 12] }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         style={{ background: '#e9e5dd' }}
       >
@@ -82,7 +105,9 @@ export default function App() {
           </mesh>
         )}
 
-        <Player bounds={bounds} mode={mode} move={moveRef} vertical={vertRef} look={lookRef} />
+        {mode === 'orbit'
+          ? <OrbitRig bounds={bounds} />
+          : <Player bounds={bounds} mode="walk" move={moveRef} look={lookRef} />}
       </Canvas>
 
       {/* Mira central (só no modo Pessoa) */}
@@ -97,14 +122,14 @@ export default function App() {
 
       {/* Botão de alternar modo */}
       <button
-        onClick={() => setMode((m) => (m === 'walk' ? 'drone' : 'walk'))}
+        onClick={() => setMode((m) => (m === 'orbit' ? 'walk' : 'orbit'))}
         style={{
           position: 'fixed', right: 16, top: 16, zIndex: 30,
           background: 'rgba(15,20,26,0.85)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)',
           padding: '10px 16px', borderRadius: 999, fontSize: 15, fontWeight: 600, cursor: 'pointer',
         }}
       >
-        {mode === 'walk' ? '🚶 Pessoa  →  🚁 Drone' : '🚁 Drone  →  🚶 Pessoa'}
+        {mode === 'orbit' ? '🔄 Órbita  →  🚶 Pessoa' : '🚶 Pessoa  →  🔄 Órbita'}
       </button>
 
       {/* Instruções */}
@@ -116,30 +141,16 @@ export default function App() {
           border: '1px solid rgba(255,255,255,0.12)',
         }}>
           {isTouch
-            ? (mode === 'walk'
-                ? '👆 Arraste para olhar  •  🕹️ joystick para andar'
-                : '👆 Arraste para olhar  •  🕹️ mover  •  ↑↓ subir/descer')
-            : (mode === 'walk'
-                ? '🖱️ Clique para olhar  •  ⌨️ WASD / setas para andar  •  V = modo drone'
-                : '🖱️ WASD para voar  •  Espaço = sobe, Shift = desce  •  V = modo pessoa')}
+            ? (mode === 'orbit'
+                ? '👆 1 dedo gira  •  ✌️ 2 dedos zoom / mover'
+                : '👆 Arraste para olhar  •  🕹️ joystick para andar')
+            : (mode === 'orbit'
+                ? '🖱️ Arraste = girar  •  Scroll = zoom  •  Botão direito = mover  •  V = modo pessoa'
+                : '🖱️ Clique para olhar  •  ⌨️ WASD / setas para andar  •  V = modo órbita')}
         </div>
       )}
 
-      {isTouch && <Joystick moveRef={moveRef} />}
-
-      {/* Botões de altitude (celular, modo drone) */}
-      {isTouch && mode === 'drone' && (
-        <div style={{ position: 'fixed', right: 24, bottom: 28, zIndex: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {[['↑', 1], ['↓', -1]].map(([label, v]) => (
-            <div key={label} {...holdVert(v)} style={{
-              width: 66, height: 66, borderRadius: '50%',
-              background: 'rgba(255,255,255,0.12)', border: '2px solid rgba(255,255,255,0.3)',
-              color: '#fff', fontSize: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              touchAction: 'none', userSelect: 'none',
-            }}>{label}</div>
-          ))}
-        </div>
-      )}
+      {isTouch && mode === 'walk' && <Joystick moveRef={moveRef} />}
 
       <Loader
         containerStyles={{ background: '#0b0f14' }}
