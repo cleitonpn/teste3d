@@ -9,6 +9,7 @@ import { EffectComposer, N8AO, Bloom, SMAA } from '@react-three/postprocessing';
 import Stand from './Stand.jsx';
 import Player from './Player.jsx';
 import Joystick from './Joystick.jsx';
+import ArtEditor from './ArtEditor.jsx';
 
 const isTouch = typeof window !== 'undefined' &&
   window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
@@ -45,6 +46,7 @@ function OrbitRig({ bounds }) {
 
 export default function App() {
   const [bounds, setBounds] = useState(null);
+  const [artPanels, setArtPanels] = useState([]);
   const [mode, setMode] = useState('orbit'); // 'orbit' | 'walk'
   const [quality, setQuality] = useState(isTouch ? 'balanced' : 'high');
   const [showHint, setShowHint] = useState(true);
@@ -101,7 +103,7 @@ export default function App() {
         </Environment>
 
         <Suspense fallback={null}>
-          <Stand onReady={setBounds} />
+          <Stand onReady={setBounds} onArtReady={setArtPanels} />
         </Suspense>
 
         {bounds && (
@@ -192,6 +194,8 @@ export default function App() {
                 : '🖱️ Clique para olhar  •  ⌨️ WASD / setas para andar  •  V = modo órbita')}
         </div>
       )}
+
+      <ArtEditor panels={artPanels} />
 
       {isTouch && mode === 'walk' && <Joystick moveRef={moveRef} />}
 
