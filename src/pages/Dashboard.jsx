@@ -8,6 +8,7 @@ export default function Dashboard() {
   const [nome, setNome] = useState('');
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(null);
+  const [stage, setStage] = useState('');
   const [err, setErr] = useState('');
   const [copied, setCopied] = useState('');
 
@@ -22,14 +23,29 @@ export default function Dashboard() {
     setErr('');
     if (!file) { setErr('Escolha um arquivo .glb.'); return; }
     if (!file.name.toLowerCase().endsWith('.glb')) { setErr('O arquivo precisa ser .glb.'); return; }
-    setProgress(0);
     try {
-      await createProject({ nome: nome || file.name.replace(/\.glb$/i, ''), file, uid: user.uid, onProgress: setProgress });
-      setNome(''); setFile(null); setProgress(null);
+      // 1) otimiza no navegador (preservando as peças)
+      setStage('Otimizando… preparando');
+      const { optimizeGlb } = await import('../lib/optimize.js');
+      const t0 = Date.now();
+      const { file: optFile, before, after, failed, error } = await optimizeGlb(
+        file, (s) => setStage('Otimizando… ' + s),
+      );
+      const secs = ((Date.now() - t0) / 1000).toFixed(0);
+      if (failed) {
+        setStage(`Otimização não aplicada (${error}). Enviando original…`);
+      } else {
+        const mb = (n) => (n / 1048576).toFixed(1);
+        setStage(`Otimizado: ${mb(before)}MB → ${mb(after)}MB em ${secs}s. Enviando…`);
+      }
+      // 2) sobe o arquivo (otimizado, ou original se a otimização falhar)
+      setProgress(0);
+      await createProject({ nome: nome || file.name.replace(/\.glb$/i, ''), file: optFile, uid: user.uid, onProgress: setProgress });
+      setNome(''); setFile(null); setProgress(null); setStage('');
       await refresh();
     } catch (e2) {
-      setErr('Falha no upload: ' + (e2.code || e2.message));
-      setProgress(null);
+      setErr('Falha: ' + (e2.code || e2.message));
+      setProgress(null); setStage('');
     }
   };
 
@@ -61,15 +77,20 @@ export default function Dashboard() {
             <input className="input" type="file" accept=".glb,model/gltf-binary"
               onChange={(e) => setFile(e.target.files?.[0] || null)} />
           </div>
-          {progress !== null ? (
-            <div className="progress"><i style={{ width: `${progress}%` }} /></div>
+          {stage ? (
+            <>
+              {progress !== null && <div className="progress"><i style={{ width: `${progress}%` }} /></div>}
+              <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+                {stage}{progress !== null ? ` ${progress}%` : ''}
+              </div>
+            </>
           ) : (
             <button className="btn pri" type="submit">Criar projeto e gerar link</button>
           )}
-          {progress !== null && <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>Enviando… {progress}%</div>}
           {err && <div className="err">{err}</div>}
           <div className="muted" style={{ marginTop: 12, fontSize: 12.5 }}>
-            Dica: por enquanto suba o .glb já otimizado. A otimização automática (preservando peças) entra na próxima etapa.
+            O modelo é otimizado automaticamente no seu navegador (Meshopt + texturas), preservando cada
+            peça. Arquivos grandes podem levar alguns segundos.
           </div>
         </form>
 
