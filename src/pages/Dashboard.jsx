@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { createProject, listMyProjects } from '../lib/projects';
+import { createProject, listMyProjects, deleteProject } from '../lib/projects';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
@@ -51,6 +51,11 @@ export default function Dashboard() {
 
   const clientLink = (p) => `${location.origin}${location.pathname}#/p/${p.id}`;
   const copy = (p) => { navigator.clipboard?.writeText(clientLink(p)); setCopied(p.id); setTimeout(() => setCopied(''), 1500); };
+  const remove = async (p) => {
+    if (!confirm(`Excluir o projeto "${p.nome}"? Isso apaga o modelo e o link do cliente.`)) return;
+    try { await deleteProject(p); await refresh(); }
+    catch (e) { setErr('Não consegui excluir: ' + (e.code || e.message)); }
+  };
 
   return (
     <div className="page">
@@ -107,8 +112,11 @@ export default function Dashboard() {
                   <div className="meta">/p/{p.id}</div>
                 </div>
                 <div className="row">
+                  <a className="btn" href={`#/editar/${p.id}`}>Marcar artes</a>
                   <button className="btn" onClick={() => copy(p)}>{copied === p.id ? 'Copiado!' : 'Copiar link'}</button>
                   <a className="btn pri" href={`#/p/${p.id}`} target="_blank" rel="noreferrer">Abrir</a>
+                  <button className="btn" onClick={() => remove(p)} title="Excluir projeto"
+                    style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}>Excluir</button>
                 </div>
               </div>
             ))}

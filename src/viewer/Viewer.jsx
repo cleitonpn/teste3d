@@ -36,7 +36,7 @@ function OrbitRig({ bounds }) {
 
 // Visualizador 3D reutilizável. Recebe o modelo (modelUrl) e a config de arte.
 // `extraUI` permite injetar botões extras (ex.: "Enviar", área interna).
-export default function Viewer({ modelUrl, artConfig, extraUI = null }) {
+export default function Viewer({ modelUrl, artConfig, extraUI = null, picking = false, onPick }) {
   const [bounds, setBounds] = useState(null);
   const [artPanels, setArtPanels] = useState([]);
   const [mode, setMode] = useState('orbit');
@@ -83,7 +83,7 @@ export default function Viewer({ modelUrl, artConfig, extraUI = null }) {
         </Environment>
 
         <Suspense fallback={null}>
-          <Stand url={modelUrl} artConfig={artConfig} onReady={setBounds} onArtReady={setArtPanels} />
+          <Stand url={modelUrl} artConfig={artConfig} onReady={setBounds} onArtReady={setArtPanels} onPick={picking ? onPick : undefined} />
         </Suspense>
 
         {bounds && (
@@ -140,7 +140,7 @@ export default function Viewer({ modelUrl, artConfig, extraUI = null }) {
         </div>
       )}
 
-      <ArtEditor panels={artPanels} />
+      {!picking && <ArtEditor panels={artPanels} />}
       {isTouch && mode === 'walk' && <Joystick moveRef={moveRef} />}
       {extraUI}
 

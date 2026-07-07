@@ -1,7 +1,7 @@
 import {
-  collection, doc, addDoc, getDoc, getDocs, query, where, serverTimestamp,
+  collection, doc, addDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from './firebase';
 
 // gera um token curto para o link público do cliente
@@ -52,4 +52,19 @@ export async function getProject(id) {
 // URL para carregar o modelo no visualizador
 export async function getModelUrl(glbPath) {
   return getDownloadURL(ref(storage, glbPath));
+}
+
+// Salva a configuração de edição marcada pelo projetista.
+export async function updateProjectConfig(id, { painelDeArte, corEditavel }) {
+  await updateDoc(doc(db, 'projetos', id), {
+    ...(painelDeArte !== undefined ? { painelDeArte } : {}),
+    ...(corEditavel !== undefined ? { corEditavel } : {}),
+  });
+}
+
+// Exclui o projeto (arquivo no Storage + registro no Firestore).
+export async function deleteProject(project) {
+  try { if (project.glbPath) await deleteObject(ref(storage, project.glbPath)); }
+  catch (e) { /* arquivo já pode não existir — segue removendo o registro */ }
+  await deleteDoc(doc(db, 'projetos', project.id));
 }

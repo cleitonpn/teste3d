@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import ProjetistaEditor from './pages/ProjetistaEditor.jsx';
 import ClientView from './pages/ClientView.jsx';
 import Viewer from './viewer/Viewer.jsx';
 import './ui.css';
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/app" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/app" element={<Protected><Dashboard /></Protected>} />
+          <Route path="/editar/:id" element={<Protected><ProjetistaEditor /></Protected>} />
           <Route path="/p/:id" element={<ClientView />} />
           <Route path="/demo" element={<Viewer />} />
           <Route path="*" element={<Navigate to="/app" replace />} />

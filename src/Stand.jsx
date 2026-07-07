@@ -14,8 +14,23 @@ const DEMO_ART_PANELS = [
   { id: 'logo_avant', name: 'Logo AVANT', material: 'Material-325' },
 ];
 
-export default function Stand({ url = DEFAULT_URL, artConfig = DEMO_ART_PANELS, onReady, onArtReady }) {
+export default function Stand({ url = DEFAULT_URL, artConfig = DEMO_ART_PANELS, onReady, onArtReady, onPick }) {
   const { scene } = useGLTF(url, DRACO_PATH);
+
+  const handleClick = (e) => {
+    if (!onPick) return;
+    e.stopPropagation();
+    const mesh = e.object;
+    const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    onPick({
+      material: mat || null,
+      materialName: mat?.name || '',
+      meshName: mesh.name || '',
+      hasMap: !!(mat && mat.map),
+      point: e.point,
+    });
+  };
+  const setCursor = (c) => { if (onPick) document.body.style.cursor = c; };
 
   useEffect(() => {
     const byName = {};
@@ -45,7 +60,14 @@ export default function Stand({ url = DEFAULT_URL, artConfig = DEMO_ART_PANELS, 
     onReady?.({ min: box.min.clone(), max: box.max.clone(), size, center });
   }, [scene, artConfig, onReady, onArtReady]);
 
-  return <primitive object={scene} />;
+  return (
+    <primitive
+      object={scene}
+      onClick={handleClick}
+      onPointerOver={() => setCursor('pointer')}
+      onPointerOut={() => setCursor('auto')}
+    />
+  );
 }
 
 useGLTF.preload(DEFAULT_URL, DRACO_PATH);
