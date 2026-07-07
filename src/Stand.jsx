@@ -70,7 +70,10 @@ export default function Stand({ url = DEFAULT_URL, artConfig = DEMO_ART_PANELS, 
     box.getSize(size);
     box.getCenter(center);
     onReady?.({ min: box.min.clone(), max: box.max.clone(), size, center });
-  }, [scene, artConfig, colorConfig, onReady, onArtReady, onColorReady, onScene]);
+    // Só reprocessa quando o MODELO muda. Não incluir os callbacks aqui:
+    // eles mudam de identidade a cada render e criariam um loop de re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene]);
 
   return (
     <primitive
