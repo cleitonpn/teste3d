@@ -1,5 +1,5 @@
 import {
-  collection, doc, addDoc, getDoc, getDocs, query, where, orderBy, serverTimestamp,
+  collection, doc, addDoc, getDoc, getDocs, query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from './firebase';
@@ -36,9 +36,12 @@ export async function createProject({ nome, file, uid, onProgress }) {
 }
 
 export async function listMyProjects(uid) {
-  const q = query(collection(db, 'projetos'), where('dono', '==', uid), orderBy('criadoEm', 'desc'));
+  // sem orderBy no Firestore (evita índice composto) — ordena no cliente
+  const q = query(collection(db, 'projetos'), where('dono', '==', uid));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.criadoEm?.seconds || 0) - (a.criadoEm?.seconds || 0));
 }
 
 export async function getProject(id) {
