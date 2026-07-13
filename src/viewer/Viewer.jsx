@@ -35,8 +35,10 @@ function FurnitureDrag({ enabled, movables, onSelect, editsRef }) {
       const node = findMovable(hits[0].object);
       if (!node) return;
       onSelect(node);
-      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -hits[0].point.y);
-      drag.current = { node, plane, offX: node.position.x - hits[0].point.x, offZ: node.position.z - hits[0].point.z };
+      const grab = hits[0].point.clone();                       // ponto agarrado (mundo)
+      const startWorld = node.getWorldPosition(new THREE.Vector3()); // posição atual (mundo)
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -grab.y); // plano horizontal na altura do clique
+      drag.current = { node, plane, grab, startWorld };
       if (controls) controls.enabled = false;
       el.setPointerCapture?.(e.pointerId);
     };
@@ -44,10 +46,12 @@ function FurnitureDrag({ enabled, movables, onSelect, editsRef }) {
       if (!drag.current) return;
       rc.setFromCamera(ndc(e), camera);
       const p = new THREE.Vector3();
-      if (rc.ray.intersectPlane(drag.current.plane, p)) {
-        drag.current.node.position.x = p.x + drag.current.offX;
-        drag.current.node.position.z = p.z + drag.current.offZ;
-      }
+      if (!rc.ray.intersectPlane(drag.current.plane, p)) return;
+      const { node, grab, startWorld } = drag.current;
+      // desloca em X/Z no MUNDO, mantém a altura (Y) fixa
+      const desired = new THREE.Vector3(startWorld.x + (p.x - grab.x), startWorld.y, startWorld.z + (p.z - grab.z));
+      if (node.parent) node.parent.worldToLocal(desired); // converte para o espaço local do pai
+      node.position.copy(desired);
     };
     const onUp = () => { if (drag.current) { drag.current = null; if (controls) controls.enabled = true; if (editsRef?.current) editsRef.current.furnitureChanged = true; } };
     el.addEventListener('pointerdown', onDown);

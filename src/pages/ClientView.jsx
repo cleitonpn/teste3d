@@ -77,6 +77,9 @@ export default function ClientView() {
     );
   }
 
+  // aguarda a URL do modelo (evita passar null ao carregador 3D)
+  if (!modelUrl) return <div className="center">Carregando estande…</div>;
+
   const enviar = async () => {
     if (sending) return;
     setSending(true);
