@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import { getProject, getModelUrl, updateProjectConfig } from '../lib/projects';
+import { furnitureNode, pathFromRoot } from '../lib/nodePath';
 import Viewer from '../viewer/Viewer.jsx';
 
 const slug = () => Math.random().toString(36).slice(2, 8);
@@ -16,6 +17,7 @@ export default function ProjetistaEditor() {
   const [name, setName] = useState('');
   const [artPanels, setArtPanels] = useState([]);
   const [colors, setColors] = useState([]);
+  const [moveis, setMoveis] = useState([]);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const hl = useRef(null); // {mat, emissive, intensity}
@@ -28,6 +30,7 @@ export default function ProjetistaEditor() {
         setProject(p);
         setArtPanels(p.painelDeArte || []);
         setColors(p.corEditavel || []);
+        setMoveis(p.moveis || []);
         setModelUrl(await getModelUrl(p.glbPath));
       } catch (e) { setErro(e.code || e.message); setProject(null); }
     })();
@@ -64,13 +67,23 @@ export default function ProjetistaEditor() {
     setColors([...colors, { material: picked.materialName, name: name || picked.materialName }]);
     setSaved(false);
   };
+  const markMovel = () => {
+    if (!picked?.object) return;
+    const { node, root } = furnitureNode(picked.object);
+    const path = pathFromRoot(node, root);
+    const key = path.join('/');
+    if (moveis.some((x) => x.path.join('/') === key)) return;
+    setMoveis([...moveis, { path, name: name || picked.meshName || 'Móvel' }]);
+    setSaved(false);
+  };
   const rmArt = (m) => setArtPanels(artPanels.filter((x) => x.material !== m));
   const rmColor = (m) => setColors(colors.filter((x) => x.material !== m));
+  const rmMovel = (key) => setMoveis(moveis.filter((x) => x.path.join('/') !== key));
 
   const save = async () => {
     setSaving(true);
     try {
-      await updateProjectConfig(id, { painelDeArte: artPanels, corEditavel: colors });
+      await updateProjectConfig(id, { painelDeArte: artPanels, corEditavel: colors, moveis });
       setSaved(true);
     } catch (e) { setErro('Falha ao salvar: ' + (e.code || e.message)); }
     finally { setSaving(false); }
@@ -99,14 +112,15 @@ export default function ProjetistaEditor() {
             <div style={{ fontFamily: 'var(--mono)', fontSize: 12.5, margin: '3px 0 8px', wordBreak: 'break-all' }}>
               {picked.materialName || <em>(sem nome de material)</em>} {picked.hasMap ? '· tem textura' : ''}
             </div>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome amigável (ex.: Lona do fundo)"
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome amigável (ex.: Lona do fundo / Cadeira)"
               style={input} />
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <button style={btnArt} disabled={!picked.materialName} onClick={markArt}>+ Arte</button>
               <button style={btnColor} disabled={!picked.materialName} onClick={markColor}>+ Cor</button>
+              <button style={btnMovel} disabled={!picked.object} onClick={markMovel}>+ Móvel</button>
             </div>
-            {!picked.materialName && <div style={{ color: '#E4685A', fontSize: 11.5, marginTop: 6 }}>
-              Sem nome de material — não dá pra marcar. Selecione outra superfície.
+            {!picked.materialName && <div style={{ color: '#9fb0bc', fontSize: 11.5, marginTop: 6 }}>
+              Sem nome de material (só afeta Arte/Cor). "+ Móvel" funciona por peça.
             </div>}
           </div>
         ) : <div style={{ ...box, color: '#9fb0bc', fontSize: 13 }}>Nenhuma superfície selecionada ainda.</div>}
@@ -115,6 +129,8 @@ export default function ProjetistaEditor() {
           render={(x) => x.name} onRemove={(x) => rmArt(x.material)} empty="Nenhuma arte marcada." />
         <Section title={`Cores (${colors.length})`} items={colors}
           render={(x) => x.name} onRemove={(x) => rmColor(x.material)} empty="Nenhuma cor marcada." />
+        <Section title={`Móveis (${moveis.length})`} items={moveis}
+          render={(x) => x.name} onRemove={(x) => rmMovel(x.path.join('/'))} empty="Nenhum móvel marcado." />
 
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <button className="btn" onClick={() => nav('/app')} style={{ flex: 1 }}>Voltar</button>
@@ -156,5 +172,6 @@ const box = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,
 const input = { width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '9px 11px', color: '#fff', fontSize: 14 };
 const btnArt = { flex: 1, background: '#DB8A18', color: '#1b1305', border: 'none', borderRadius: 8, padding: '9px', fontWeight: 700, cursor: 'pointer' };
 const btnColor = { flex: 1, background: '#2f6bff', color: '#fff', border: 'none', borderRadius: 8, padding: '9px', fontWeight: 700, cursor: 'pointer' };
+const btnMovel = { flex: 1, background: '#2E9A67', color: '#fff', border: 'none', borderRadius: 8, padding: '9px', fontWeight: 700, cursor: 'pointer' };
 const rowItem = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 7, padding: '7px 10px' };
 const rmBtn = { background: 'transparent', border: 'none', color: '#E4685A', fontSize: 12, cursor: 'pointer' };

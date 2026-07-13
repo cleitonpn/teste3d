@@ -55,10 +55,11 @@ export async function getModelUrl(glbPath) {
 }
 
 // Salva a configuração de edição marcada pelo projetista.
-export async function updateProjectConfig(id, { painelDeArte, corEditavel }) {
+export async function updateProjectConfig(id, { painelDeArte, corEditavel, moveis }) {
   await updateDoc(doc(db, 'projetos', id), {
     ...(painelDeArte !== undefined ? { painelDeArte } : {}),
     ...(corEditavel !== undefined ? { corEditavel } : {}),
+    ...(moveis !== undefined ? { moveis } : {}),
   });
 }
 
@@ -104,4 +105,32 @@ export async function listSubmissions(projectId) {
 
 export async function getFileUrl(path) {
   return getDownloadURL(ref(storage, path));
+}
+
+// ---- Catálogo de mobiliário ----
+// Guardado sob models/{uid}/catalogo (reaproveita as regras existentes).
+export async function createCatalogItem({ nome, categoria, file, uid, onProgress }) {
+  const path = `models/${uid}/catalogo/${Date.now()}_${file.name}`;
+  const task = uploadBytesResumable(ref(storage, path), file, { contentType: 'model/gltf-binary' });
+  await new Promise((resolve, reject) => {
+    task.on('state_changed',
+      (s) => onProgress?.(Math.round((s.bytesTransferred / s.totalBytes) * 100)),
+      reject, resolve);
+  });
+  const docRef = await addDoc(collection(db, 'catalogo'), {
+    nome, categoria: categoria || 'Outro', glbPath: path, dono: uid,
+    tamanho: file.size, criadoEm: serverTimestamp(),
+  });
+  return docRef.id;
+}
+
+export async function listCatalog() {
+  const snap = await getDocs(collection(db, 'catalogo'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.criadoEm?.seconds || 0) - (a.criadoEm?.seconds || 0));
+}
+
+export async function deleteCatalogItem(item) {
+  try { if (item.glbPath) await deleteObject(ref(storage, item.glbPath)); } catch (e) { /* ignore */ }
+  await deleteDoc(doc(db, 'catalogo', item.id));
 }
