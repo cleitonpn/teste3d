@@ -62,7 +62,9 @@ export default function Dashboard() {
       <div className="topbar">
         <div className="brand">Maquete <span className="b">Viva</span></div>
         <div className="row">
-          <a className="btn" href="#/admin">Catálogo de móveis</a>
+          <a className="btn" href="#/criar" target="_blank" rel="noreferrer">🧱 Criar (modular)</a>
+          <a className="btn" href="#/admin/precos">Preços</a>
+          <a className="btn" href="#/admin">Catálogo</a>
           <span className="pill">{user?.email}</span>
           <button className="btn" onClick={logout}>Sair</button>
         </div>

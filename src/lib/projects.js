@@ -129,6 +129,38 @@ export async function createCatalogItem({ nome, categoria, file, uid, onProgress
 export async function listCatalog() {
   const snap = await getDocs(collection(db, 'catalogo'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .filter((x) => x.id !== '__precos__')
+    .sort((a, b) => (b.criadoEm?.seconds || 0) - (a.criadoEm?.seconds || 0));
+}
+
+// ---- Preços (tabela do construtor modular) ----
+// Guardado como doc especial em catalogo/__precos__ (regra já liberada).
+export async function getPrices() {
+  const s = await getDoc(doc(db, 'catalogo', '__precos__'));
+  return s.exists() ? (s.data().precos || {}) : {};
+}
+export async function savePrices(precos) {
+  await setDoc(doc(db, 'catalogo', '__precos__'), { precos });
+}
+
+// ---- Orçamento (projeto criado do zero pelo cliente) ----
+export async function createOrcamento({ cliente, email, telefone, items, total, screenshotDataUrl }) {
+  const id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  let screenshotPath = null;
+  if (screenshotDataUrl) {
+    const blob = await (await fetch(screenshotDataUrl)).blob();
+    screenshotPath = `artes/orcamentos/${id}/preview.jpg`;
+    await uploadBytes(ref(storage, screenshotPath), blob, { contentType: 'image/jpeg' });
+  }
+  await setDoc(doc(db, 'orcamentos', id), {
+    cliente: cliente || '', email: email || '', telefone: telefone || '',
+    items: items || [], total: total || 0, screenshotPath, criadoEm: serverTimestamp(),
+  });
+  return id;
+}
+export async function listOrcamentos() {
+  const snap = await getDocs(collection(db, 'orcamentos'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
     .sort((a, b) => (b.criadoEm?.seconds || 0) - (a.criadoEm?.seconds || 0));
 }
 
