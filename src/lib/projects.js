@@ -75,9 +75,11 @@ export async function deleteProject(project) {
 export async function createSubmission(projectId, { cliente, email, colors, artFiles, screenshotDataUrl }) {
   const subId = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
+  // guardado sob artes/ (regra de Storage já liberada)
+  const base = `artes/envios/${projectId}/${subId}`;
   const artes = [];
   for (const [panelId, file] of Object.entries(artFiles || {})) {
-    const path = `envios/${projectId}/${subId}/art_${panelId}.png`;
+    const path = `${base}/art_${panelId}.png`;
     await uploadBytes(ref(storage, path), file, { contentType: file.type || 'image/png' });
     artes.push({ panelId, path });
   }
@@ -85,7 +87,7 @@ export async function createSubmission(projectId, { cliente, email, colors, artF
   let screenshotPath = null;
   if (screenshotDataUrl) {
     const blob = await (await fetch(screenshotDataUrl)).blob();
-    screenshotPath = `envios/${projectId}/${subId}/preview.jpg`;
+    screenshotPath = `${base}/preview.jpg`;
     await uploadBytes(ref(storage, screenshotPath), blob, { contentType: 'image/jpeg' });
   }
 
